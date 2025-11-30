@@ -1,0 +1,181 @@
+{% extends 'shop/base.html' %}
+
+{% block title %}Shopping Cart - E-Commerce Store{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Shopping Cart</h1>
+
+{% if cart_items %}
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    {% for item in cart_items %}
+                        <div class="row mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
+                            <div class="col-md-2">
+                                {% if item.image %}
+                                    <img src="{{ item.image }}" class="img-fluid rounded" alt="{{ item.name }}">
+                                {% else %}
+                                    <div class="bg-light d-flex align-items-center justify-content-center rounded" style="height: 80px;">
+                                        <i class="bi bi-image text-muted"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <h5>{{ item.name }}</h5>
+                                <p class="text-muted mb-0">${{ item.price }}</p>
+                                {% if item.stock < item.quantity %}
+                                    <small class="text-danger">Only {{ item.stock }} available</small>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3">
+                                <form method="post" action="{% url 'update_cart' item.id %}" class="update-cart-form d-flex align-items-center">
+                                    {% csrf_token %}
+                                    <input type="number" name="quantity" value="{{ item.quantity }}" min="1" max="{{ item.stock }}" class="form-control form-control-sm me-2" style="width: 80px;">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-arrow-repeat"></i>
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <strong>${{ item.total|floatformat:2 }}</strong>
+                            </div>
+                            <div class="col-md-1 text-end">
+                                <form method="post" action="{% url 'remove_from_cart' item.id %}" class="remove-cart-form d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Coupon Code</h5>
+                    {% if coupon %}
+                        <div class="alert alert-success">
+                            <strong>{{ coupon.code }}</strong> applied!
+                            {% if coupon.discount_type == 'percentage' %}
+                                <br><small>{{ coupon.discount_value }}% off</small>
+                            {% else %}
+                                <br><small>${{ coupon.discount_value }} off</small>
+                            {% endif %}
+                        </div>
+                        <form method="post" action="{% url 'remove_coupon' %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger w-100">Remove Coupon</button>
+                        </form>
+                    {% else %}
+                        <form method="post" action="{% url 'apply_coupon' %}">
+                            {% csrf_token %}
+                            <div class="input-group mb-2">
+                                {{ coupon_form.code }}
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </div>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Order Summary</h5>
+                    <hr>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Subtotal:</span>
+                        <strong>${{ total|floatformat:2 }}</strong>
+                    </div>
+                    {% if discount > 0 %}
+                        <div class="d-flex justify-content-between mb-2 text-success">
+                            <span>Discount:</span>
+                            <strong>-${{ discount|floatformat:2 }}</strong>
+                        </div>
+                    {% endif %}
+                    <div class="d-flex justify-content-between mb-3">
+                        <span>Shipping:</span>
+                        <strong>FREE</strong>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between mb-3">
+                        <h5>Total:</h5>
+                        <h5 class="text-primary">${{ final_total|floatformat:2 }}</h5>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'checkout' %}" class="btn btn-primary btn-lg">
+                            Proceed to Checkout <i class="bi bi-arrow-right"></i>
+                        </a>
+                        <a href="{% url 'product_list' %}" class="btn btn-outline-secondary">
+                            Continue Shopping
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-cart-x" style="font-size: 5rem; color: #ccc;"></i>
+        <h3 class="mt-3">Your cart is empty</h3>
+        <p class="text-muted">Add some products to get started!</p>
+        <a href="{% url 'product_list' %}" class="btn btn-primary mt-3">
+            <i class="bi bi-shop"></i> Start Shopping
+        </a>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // AJAX Update Cart
+    $('.update-cart-form').submit(function(e) {
+        e.preventDefault();
+        const form = $(this);
+        const formData = form.serialize();
+        
+        $.ajax({
+            url: form.attr('action'),
+            method: 'POST',
+            data: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(response) {
+                if (response.success) {
+                    location.reload();
+                }
+            }
+        });
+    });
+    
+    // AJAX Remove from Cart
+    $('.remove-cart-form').submit(function(e) {
+        e.preventDefault();
+        const form = $(this);
+        
+        if (!confirm('Are you sure you want to remove this item?')) {
+            return;
+        }
+        
+        $.ajax({
+            url: form.attr('action'),
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(response) {
+                if (response.success) {
+                    updateCartCount(response.cart_count);
+                    location.reload();
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
