@@ -1,0 +1,8 @@
+﻿Django==5.0.6
+gunicorn
+whitenoise
+psycopg2-binary
+Pillow
+requests
+sqlparse
+
